@@ -1,0 +1,682 @@
+30   !*********************************************************************
+40   !MAIN PROGRAM
+50   !
+60   !This example shows the fundamental parts of a program (initialize,
+70   !capture, analyze).
+80   !
+90   !The commands sent to the 54621AD/22AD/24A are written in 
+100  !both long and short form.  Both forms are acceptable.
+110  !
+120  !The input signal used is the AC CAL signal at the front panel of the
+130  !analyzer connected to channel 0 and channel 10.
+140  !
+150  !If you are using a different signal or different channels, these
+160  !commands may not work exactly as explained in the comments.
+170  !*********************************************************************
+180
+190  !*********************************************************************=
+200  !INITIALIZE
+210  !
+220  !Initialization will start the program with the analyzer in a known
+230  !state.  This is required because some uninitialized condition could
+240  !drastically change the outcome of the program.
+250  !
+260  !First, initialize the analyzer and RS232 interface.  Then, if needed,
+270  !initialize the timebase, channels, and trigger systems.  Finally,
+280  !modify the ACQUIRE subsystem to suit your measurement needs.
+290  !*********************************************************************
+300    GOSUB Initialize                 !initialize interface and analyzer
+310
+320  !*********************************************************************
+330  !CAPTURE
+340  !
+350  !After initialization, you must make the waveform data available to
+360  !analyze.  To do this, we recommend that you capture the data using
+370  !the DIGITIZE command.
+380  !
+390  !DIGITIZE clears the waveform data buffers and begins to acquire new
+400  !data.  DIGITIZE continues until all the new data is acquired and then
+410  !stops.  Once it stops, the captured data can be measured, stored in
+420  !memory, or transferred to the computer for analysis.
+430  !*********************************************************************
+440    GOSUB Capture                    !digitize and acquire waveform
+450
+460  !*********************************************************************
+470  !ANALYZE
+480  !
+490  !Once the waveform has been captured, it can be analyzed.
+500  !
+510  !There are many parts of the waveform to analyze.  The parts that need
+520  !to be analyzed depend on the purpose of the program.  This example
+530  !shows some of the possible ways to analyze various parts of waveforms.
+540  !*********************************************************************
+550    GOSUB Analyze                    !analyze waveform
+560
+570  !*********************************************************************
+580  !Again, not all initialization steps are necessary for your program to
+590  !run correctly.  You only need to include or add those steps that are
+600  !necessary for your program.
+610  !
+620  !Also, analysis of the waveform(s) can be done in any way you choose.
+630  !This example only shows some of the possible forms of analysis.
+640  !*********************************************************************
+650    STOP                             !Exit program
+660
+670  !*********************************************************************
+680  !INITIALIZE
+690  !
+700  !In this example we will initialize the following:
+710  !
+720  ! - Analyzer and RS232 interface
+730  ! - POD thresholds and labels
+740  ! - DISPLAY grid and order of the channels
+750  ! - TIMEBASE reference, range, and delay
+760  ! - TRIGGER mode and type
+770  ! - ADVANCED TRIGGER source, pattern, and operator
+780  !
+790  !There are also some additional initialization commands, which are not
+800  !used, but are shown for reference purposes only.
+810  !*********************************************************************
+820 Initialize:
+830
+840  !*********************************************************************-
+850  !SETUP_INTERFACE
+860  !
+870  ! - This assigns the analyzer I/O address to the Analyzer variable,
+880  !   and sets up the RS232 Interface.
+890  !
+900  ! - Now all communication with the analyzer can be done through the
+910  !   variable @Analyzer.
+920  !*********************************************************************-
+930    CONTROL 9,3;9600                !set RS232 baud rate to 9600
+940    CONTROL 9,4;3                   !8 bit;1stop;par disable;odd par
+950    ASSIGN @Analyzer TO 9           !analyzer address
+960
+970  !*********************************************************************-
+980  !RESET
+990  !
+1000 ! - This command puts the analyzer in a known state.
+1010 !   Without this command, the analyzer settings are unknown.
+1020 !   This command is very important for program control.
+1030 !
+1040 ! - Many of the following initialization commands are initialized by
+1050 !   this command.  It is not necessary to reinitialize them unless
+1060 !   you want to change the default setting.
+1070 !*********************************************************************
+1080   OUTPUT @Analyzer;"*RST"         !set analyzer to default config
+1090
+1100 !*********************************************************************
+1110 !THRESHOLD
+1120 !
+1130 ! - This command is used to set the voltage threshold for the
+1140 !   waveforms.  There are three preset values (TTL, CMOS, and ECL) and
+1150 !   you can also set a user-defined threshold value between -8.0 volts
+1160 !   and +8.0 volts.
+1170 !
+1180 ! - In this example we set channels 0-7 to CMOS, then set channels 8-15
+1190 !   to a user defined 2.0 volts, and then set the external trigger to
+1200 !   TTL.  Of course you only need to set the thresholds for the
+1210 !   channels you will be using in your program.
+1220 !*********************************************************************
+1230                                   !set channels 0-7 to CMOS threshold
+1240   OUTPUT @Analyzer;":POD1:THRESHOLD CMOS"
+1250                                   !set channels 8-15 to 2.0 volts
+1260   OUTPUT @Analyzer;":POD2:THRESHOLD 2.0"
+1270                                   !set external channel to TTL threshold
+1280                                   !(written in short form)
+1290   OUTPUT @Analyzer;":TRIG:LEV TTL,EXT"
+1300
+1310 !*********************************************************************
+1320 !LABEL
+1330 !
+1340 ! - This command allows you to write a name (six characters maximum)
+1350 !   next to the channel number.  It is not necessary, but can be useful
+1360 !   for organizing the display.
+1370 !*********************************************************************
+1380                                   !label channel1  "CAL 0"
+1390   OUTPUT @Analyzer;":CHANNEL1:LABEL ""CAL 0"""
+1400                                   !label channel10 "CAL10"
+1410   OUTPUT @Analyzer;":CHANNEL10:LABEL ""CAL10"""
+1420
+1510 !*********************************************************************
+1520 !DISP_ORDER
+1530 !
+1540 ! - Set the order in which the channels are displayed on the analyzer.
+1550 !   You can enter between 1 and 32 channels at one time.  If you leave
+1560 !   out channels, they will not be displayed on the analyzer.
+1570 !*********************************************************************
+1580                                   !display ONLY channel 0 and channel 10
+1590                                   !in that order
+1600   OUTPUT @Analyzer;":DISPLAY:ORDER 0,10"
+1610
+1620 !*********************************************************************
+1630 !TIME_REFERENCE
+1640 !
+1650 ! - Possible values are LEFT, CENTER, and RIGHT.
+1660 ! - LEFT sets the display reference to one time division from the left
+1670 !   side of the screen.
+1680 ! - CENTER sets the display reference to the center of the screen.
+1690 ! - RIGHT sets the display reference to one time division from the
+1700 !   right side of the screen.
+1710 !*********************************************************************
+1720                                   !set timebase reference to CENTER
+1730   OUTPUT @Analyzer;":TIMEBASE:REFERENCE CENTER"
+1740
+1750 !*********************************************************************
+1760 !TIME_RANGE
+1770 !
+1780 ! - Sets the full-scale horizontal time in seconds.  The range value is
+1790 !   ten times the time per division.  When the delayed timebase is
+1800 !   selected, the range command will set the full-scale horizontal time
+1810 !   of the delayed timebase.
+1820 !*********************************************************************
+1830   OUTPUT @Analyzer;":TIMEBASE:RANGE 200US" !set timebase range to 200us
+1840
+1850 !*********************************************************************
+1860 !TIME_DELAY
+1870 !
+1880 ! - Sets the time base delay.  This delay is the internal time between
+1890 !   the trigger event and the onscreen delay reference point.
+1900 !*********************************************************************
+1910   OUTPUT @Analyzer;":TIMEBASE:DELAY 0.0"   !set timebase delay to 0.0
+1920
+1930 !*********************************************************************
+1940 !TRIGGER_MODE
+1950 !
+1960 ! - Set the trigger mode to AUTO or NORMAL.
+1970 !
+1980 ! - If the AUTO mode is selected and the analyzer does not find a
+1990 !   trigger, the waveform will still be displayed.
+2000 !
+2010 ! - If the NORMAL mode is selected and no trigger is present, the
+2020 !   waveform(s) will not be acquired; therefore, the waveform(s) can
+2030 !   not be displayed on the screen.
+2040 !*********************************************************************
+2050   OUTPUT @Analyzer;":TRIGGER:MODE NORMAL"  !set trigger mode to NORMAL
+2060
+2070 !*********************************************************************
+2080 !TRIGGER_TYPE
+2090 !
+2100 ! - Set trigger type to EDGE, simple PATTERN, or ADVANCED.
+2110 !*********************************************************************
+2120                                    !set trigger type to ADVANCED
+2130   OUTPUT @Analyzer;":TRIGGER:TYPE ADVANCED"
+2140
+2150 !*********************************************************************
+2160 !TV_SOURCE
+2170 !
+2180 ! - Set the trigger tv source.
+2190 !   
+2200 !*********************************************************************
+2210                                    !set trigger tv source to
+2220                                    !CHANNEL1
+2230   OUTPUT @Analyzer;":TRIGGER:TV:SOURCE CHANNEL1"
+2240
+2250 !*********************************************************************
+2260 !DUR_PATTERN
+2270 !
+2280 ! - Set the trigger duration pattern using pattern and mask values.
+2290 !   These can be entered in decimal or as a string in hexadecimal.
+2300 !
+2310 ! - The HIGH bits in the pattern set the corresponding channels HIGH
+2320 !   and the LOW bits in the pattern set the corresponding channels LOW.
+2330 !
+2340 ! - The HIGH bits in the mask define which channels are affected by the
+2350 !   pattern and the LOW bits set the corresponding channels to
+2360 !   DON'T CARE.
+2370 !
+2380 ! - In this example, the pattern is "0X0001" which will set channel 0
+2390 !   to HIGH and all other channels to LOW.  Further, the mask is
+2400 !   1 which means only channel 0 is affected by the pattern and all
+2410 !   other channels will be set to DON'T CARE.
+2420 !
+2430 ! - This example writes the pattern as a string and the mask as a
+2440 !   decimal.  You may write the pattern and mask in either the string
+2450 !   or decimal format.
+2460 !*********************************************************************
+2470                                    !Set advanced pattern to
+2480                                    !CHANNEL 0 HIGH and all other
+2490                                    !channels to DON'T CARE.
+2500   OUTPUT @Analyzer;":TRIGGER:DURATION:PATTERN ""0X0001"", 1"
+2510   RETURN
+2520 !*********************************************************************
+2650 !The following commands up to the Capture Subroutine are not executed
+2660 !and are shown for reference purposes only.  To execute these commands
+2670 !remove the "RETURN" from line 2510.
+2680 !========================================================
+2690 
+2700 !*********************************************************************
+2710 !AUTOSCALE (not executed in this example)
+2720 !
+2730 ! - Evaluates all input signals and sets the correct conditions to
+2740 !   display all of the active signals.
+2750 !*********************************************************************
+2760   OUTPUT @Analyzer;":AUTOSCALE"    !display active waveforms
+2770
+2850 !*********************************************************************
+2860 ! RUN_STOP (not executed in this example)
+2870 !
+2880 ! - RUN starts the acquisition of data for the active waveform display.
+2890 !
+2900 ! - STOP stops the data acquisition and turns off AUTOSTORE.
+2910 !*********************************************************************
+2920   OUTPUT @Analyzer;":RUN"          !start data acquisition
+2930   OUTPUT @Analyzer;":STOP"         !stop data acquisition
+2940
+3020 !*********************************************************************
+3030 !VIEW_BLANK (not executed in this example)
+3040 !
+3050 ! - VIEW turns on (starts displaying) an active channel or pixel
+3060 !   memory.
+3070 !
+3080 ! - BLANK turns off (stops displaying) a specified channel or pixel
+3090 !   memory.
+3100 !*********************************************************************
+3110   OUTPUT @Analyzer;":VIEW DIGital0"       !turn channel0  ON
+3120   OUTPUT @Analyzer;":VIEW DIGITal10"      !turn channel10 ON
+3130   OUTPUT @Analyzer;":BLANK DIGital1"      !turn channel1  OFF
+3140
+3150 !*********************************************************************
+3160 !DISP_LABEL (not executed in this example)
+3170 !
+3180 ! - Turns label names ON or OFF on the analyzer display.
+3190 !*********************************************************************
+3200   OUTPUT @Analyzer;":DISPLAY:LABEL ON"     !turn on labels
+3210
+3220 !*********************************************************************
+3230 !TIME_MODE (not executed in this example)
+3240 !
+3250 ! - Set the timebase mode to MAIN, XY, ROLL or DELAYED.
+3260 !*********************************************************************
+3270                                    !set timebase mode to MAIN
+3280   OUTPUT @Analyzer;":TIMEBASE:MODE MAIN"
+3290
+3390 !========================================================
+3400 !CAPTURE
+3410 !
+3420 !In this example we want to initialize the advanced trigger
+3430 !duration based on the period of channel 0.  However, we can't measure
+3440 !the period until we capture the waveform data.  Therefore, the
+3450 !initialization and capture stages of the program overlap.
+3460 !
+3470 !To accomplish this, we will first capture the waveform using DIGITIZE,
+3480 !measure the period of channel 0, set the advanced trigger
+3490 !duration, then DIGITIZE again for waveform analysis.
+3500 !========================================================
+3510 Capture:
+3520
+3530 !*********************************************************************
+3540 !DIGITIZE
+3550 !
+3560 ! - Used to acquire waveform data for transfer over the interface.
+3570 !   Sending the command causes an acquisition to take place with the
+3580 !   resulting data being placed in the buffer.  When the DIGITIZE
+3590 !   operation is complete the instrument is placed in the stopped mode.
+3600 !   The length of time DIGITIZE takes is dependent on which system it
+3610 !   is run on and the current timebase range setting.
+3620 !*********************************************************************
+3630   OUTPUT @Analyzer;":DIGITIZE"     !acquire waveform data and stop
+3640
+3650 !*********************************************************************
+3660 !MEASURE_PERIOD
+3670 !
+3680 ! - Measures the period of the first complete cycle on the screen.
+3690 !*********************************************************************
+3700                                    !set measure source to channel 0
+3710   OUTPUT @Analyzer;":MEASURE:SOURCE CHANNEL0"
+3720   OUTPUT @Analyzer;":MEASURE:PERIOD?"      !query for period
+3730   ENTER @Analyzer;Period                   !read period
+3740
+3750 !*********************************************************************
+3760 !SET_DURATION
+3770 !
+3780 ! - Set trigger duration.
+3790 !
+3800 ! - We will start with the duration equal to the period, attempt to
+3810 !   capture the waveform, and check if a trigger is acquired.  If not,
+3820 !   we will decrease the length of the duration and attempt to capture
+3830 !   the new waveform until a trigger is acquired.
+3840 !
+3850 ! - The "WAIT 1" instruction is required to allow the RUNSINGLE command
+3860 !   time to acquire the waveform data.  The wait time required depends
+3870 !   on the current timebase range and delay settings.  The higher the
+3880 !   timebase range, the more wait time must be added.
+3890 !*********************************************************************
+3900   Duration=Period                  !set Time to Period
+3910                                    !set maximum trigger duration
+3920   OUTPUT @Analyzer;":TRIGGER:DURATION:LESSthan ";Duration
+3930   OUTPUT @Analyzer;":TER?"         !query for trigger and clear bit
+3940   ENTER @Analyzer;Ter              !read if trigger was acquired
+3950   OUTPUT @Analyzer;":SINGLE"       !acquire waveform with new trigger
+3960   WAIT 1                           !wait for single
+3970   OUTPUT @Analyzer;":TER?"         !query for trigger
+3980   ENTER @Analyzer;Ter              !read if trigger was acquired
+3990   WHILE Ter<>1                     !do loop while trigger not acquired
+4000     Duration=Duration*.9           !decrease duration by 10%
+4010                                    !set maximum trigger duration
+4020                                    !(written in short form)
+4030     OUTPUT @Analyzer;":TRIG:DUR:LESS ";Duration
+4040     OUTPUT @Analyzer;":TER?"       !query for trigger and clear bit
+4050     ENTER @Analyzer;Ter            !read if trigger was acquired
+4060     OUTPUT @Analyzer;":SINGLE"     !acquire waveform with new trigger
+4070     WAIT 1                         !wait for single
+4080     OUTPUT @Analyzer;":TER?"       !query for trigger
+4090     ENTER @Analyzer;Ter            !read if trigger was acquired
+4100   END WHILE                        !end loop
+4110   OUTPUT @Analyzer;":DIGITIZE"     !acquire waveform data and stop
+4120   RETURN                           !from Capture
+4130
+4140 !========================================================
+4150 !ANALYZE
+4160 !
+4170 !In this example we will show how to do the following:
+4180 !
+4190 ! - Save the system setup to a file and restore it at a later time
+4200 ! - Make single and dual channel measurements
+4210 ! - Use cursor information
+4220 ! - Save the analyzer display to a file that can be sent to a printer
+4230 ! - Read the waveform(s) data and send it to a file
+4240 !
+4250 !These are only some of the basic tools for analysis.
+4260 !========================================================
+4270 Analyze:
+4280
+4290 !*********************************************************************
+4300 !SAVE_LEARN
+4310 !
+4320 ! - The *LRN query returns a program message that contain the current
+4330 !   state of the instrument.  This is the same as the :SYSTEM:SETUP?
+4340 !   query.  It returns #800000500<learn string><NL>.  
+4350 !   
+4360 !*********************************************************************
+4370   DIM String$[511]                 !allocate memory for learn string
+4380   OUTPUT @Analyzer;"*LRN?"         !query for learn string
+4390   ENTER @Analyzer USING "-K";String$        !read learn string
+4400   ON ERROR GOTO No_learn_dat       !if next line has error, continue
+4410   PURGE "learn.dat"                !try to delete file "learn.dat"
+4420 No_learn_dat:
+4430   OFF ERROR                        !turn off any error condition
+4440   CREATE "learn.dat",1             !create new file "learn.dat"
+4450   ASSIGN @Learn_file TO "learn.dat"        !open file "learn.dat"
+4460   OUTPUT @Learn_file USING "#,K";String$   !write learn string to file
+4470   ASSIGN @Learn_file TO *          !close file "learn.dat"
+4480
+4490 !*********************************************************************
+4500 !MEASUREMENTS
+4510 !
+4520 ! - The commands in the MEASURE subsystem are used to make
+4530 !   measurements on displayed waveforms.
+4540 !*********************************************************************
+4550
+4560 !*********************************************************************
+4570 !SINGLE_CHANNEL_MEASUREMENTS
+4580 !
+4590 ! - Allows you to measure the FREQuency, PERiod, and DUTYcycle of the
+4600 !   waveform(s).  :MEASURE:SOURCE sets the channel to be measured.
+4610 !*********************************************************************
+4620                                    !Set measure source to channel 1
+4700   OUTPUT @Analyzer;":MEASURE:SOURCE CHANNEL1"
+4930
+5110 !*********************************************************************
+5120 !IMAGE_TRANSFER
+5130 !
+5140 ! - In this example we will query for the image data with :PRINT?,
+5150 !   read the data into the string Print_info$, and then save the data
+5160 !   to the file "image.dat" which you can then send to a printer.
+5170 !*********************************************************************
+5180                                            !allocate memory for printer data.
+5190                                            !19768 bytes is the size for LOW RES
+5200   DIM Print_info$[19768]                   !image data.  HI RES needs 223049.
+5210   OUTPUT @Analyzer;":PRINT?"               !query for printer data
+5220   PRINT "Reading printer data. . .."
+5230   ENTER @Analyzer USING "-K";Print_info$   !this can take a while
+5240   PRINT "Done reading printer data"
+5250   ON ERROR GOTO No_image_dat               !if next line has error, continue
+5260   PURGE "image.dat"                        !try to delete file "image.dat"
+5270 No_image_dat:
+5280   OFF ERROR                                !turn off any error condition
+5290   CREATE "image.dat",1                     !create new file "image.dat"
+5300   ASSIGN @Image_file TO "image.dat"        !open file "image.dat"
+5310                                            !write data to file "image.dat"
+5320   OUTPUT @Image_file USING "#,K";Print_info$
+5330   ASSIGN @Image_file TO *                  !close file "image.dat"
+5340
+5350 !*********************************************************************
+5360 !WAVEFORM_DATA
+5370 !
+5380 ! - To obtain waveform data, you must specify the WAVEFORM parameters
+5390 !   for the waveform data prior to sending the :WAVEFORM:DATA? query.
+5400 !
+5410 ! - Once these parameters have been sent, the :WAVEFORM:PREAMBLE? query
+5420 !   provides information concerning the vertical and horizontal scaling
+5430 !   of the waveform data.
+5440 !
+5450 ! - With the preamble information you can then use the :WAVEFORM:DATA?
+5460 !   query and read the data block in the correct format.
+5470 !*********************************************************************
+5480
+5490 !*********************************************************************
+5500 !WAVE_POINTS
+5510 !
+5520 ! - Sets the number of points to be transferred.  The number of time
+5530 !   points available is returned by the ACQUIRE:POINTS? query.  This
+5540 !   can be set to any binary fraction of the total time points
+5550 !   available.
+5560 !*********************************************************************
+5570   OUTPUT @Analyzer;":ACQUIRE:POINTS?"      !query for points available
+5580   ENTER @Analyzer;Points                   !read points available
+5590   PRINT "Number of points acquired = ";Points
+5600   OUTPUT @Analyzer;":WAVEFORM:POINTS 100"  !set points wanted to 100
+5610
+5620 !*********************************************************************
+5630 !WAVE_FORMAT
+5640 !
+5650 ! - Sets the data transmission mode for waveform data output.  This
+5660 !   command controls how the data is formatted when sent from the
+5670 !   analyzer and can be set to WORD or BYTE format.
+5680 !*********************************************************************
+5690   OUTPUT @Analyzer;":WAVEFORM:FORMAT WORD" !set waveform format to WORD
+5700
+5710 !*********************************************************************
+5720 !WAVE_SOURCE
+5730 !
+5740 ! - Selects the channel(s) to be used as the source for the waveform
+5750 !   commands.
+5760 !*********************************************************************
+5770                                    !set source to all 16 channels
+5780   OUTPUT @Analyzer;":WAVEFORM:SOURCE POD1"
+5790
+5800 !*********************************************************************
+5810 !WAVE_BYTE_ORDER
+5820 !
+5830 ! - Sets the output sequence of the word data.  The parameter MSBFIRST
+5840 !   sets the most significant byte to be transmitted first.  The
+5850 !   parameter LSBFIRST sets the least significant byte to be
+5860 !   transmitted first.  This command affects the transmitting sequence
+5870 !   only when :TIMEBASE:MODE is set to NORMAL and the selected
+5875 !   WAVEFORM:SOURCE:CHANNEL is turned on.
+5880 !*********************************************************************
+5882                                    !set timebase mode to normal
+5884   OUTPUT @Analyzer;":TIMEBASE:MODE NORMAL"
+5890                                    !set waveform byte order to LSBFIRST
+5900   OUTPUT @Analyzer;":WAVEFORM:BYTEORDER LSBFIRST"
+5910
+5920 !*********************************************************************
+5930 !GET_PREAMBLE
+5940 !
+5950 ! - The preamble contains all of the current WAVEFORM settings returned
+5960 !   in the form <preamble block><NL> where the <preamble block> is:
+5970 !
+5980 !     - FORMAT     : int16
+5990 !     - TYPE       : int16
+6000 !     - POINTS     : int32
+6010 !     - COUNT      : int32
+6020 !     - XINCREMENT : float32
+6030 !     - XORIGIN    : float64
+6040 !     - XREFERENCE : int32
+6050 !     - YINCREMENT : float32
+6060 !     - YORIGIN    : float32
+6070 !     - YREFERENCE : int16
+6080 !*********************************************************************
+6090   DIM Preamble(1:10)                       !allocate space for waveform preamble
+6100   OUTPUT @Analyzer;":WAVEFORM:PREAMBLE?"   !query for waveform preamble
+6110   ENTER @Analyzer;Preamble(*)              !read the preamble
+6120
+6130 !*********************************************************************
+6140 !QUERY_WAVE_DATA
+6150 !
+6160 ! - Outputs waveform records to the controller over the interface that
+6170 !   is stored in a buffer previously specified with the
+6180 !   :WAVEFORM:SOURCE command.
+6190 !
+6200 ! - The wave data consists of two parts: the header, and the actual
+6210 !   waveform data followed by an New Line (NL) character.  The query
+6220 !   data has the following format:
+6230 !
+6240 !               <header> <waveform data block> <NL>
+6250 !
+6260 !               <header> = #800002048    (this is an example header)
+6270 !*********************************************************************
+6280   OUTPUT @Analyzer;":WAVEFORM:DATA?"       !query for waveform data
+6290   ENTER @Analyzer USING "#,2A,8D";Header$,Bytes
+6300   PRINT "Reading";Bytes;"bytes from analyzer. . .."
+6310   ALLOCATE INTEGER Waveform(1:Bytes+1)
+6320   ENTER @Analyzer USING "#,B";Waveform(*)  !read data
+6330   PRINT "Done reading bytes from analyzer"
+6340
+6350 !*********************************************************************
+6360 !WAVE_DATA_FILE
+6370 !
+6380 ! - Create data file to save the waveform data in.  The data file will
+6390 !   have the following format:
+6400 !
+6410 !      STATE #        CAL 0         CAL10         TIME
+6420 !
+6430 !       0000             0             0        0.000E+0
+6440 !       0001          GL 0          GL 0        1.237E-6
+6450 !       0002             1             1        2.474E-6
+6460 !       0003             0             0        4.948E-6
+6470 !       ...           ...           ...         ...
+6480 !*********************************************************************
+6490   ON ERROR GOTO No_waveform_dat    !if next line has error, continue
+6500   PURGE "waveform.dat"             !try to delete file "waveform.dat"
+6510 No_waveform_dat:
+6520   OFF ERROR                        !turn off any error condition
+6530   CREATE "waveform.dat",1          !create file "waveform.dat"
+6540   ASSIGN @Data_file TO "waveform.dat"      !open file "waveform.dat"
+6550                                    !Write column headers to file.
+6560   OUTPUT @Data_file USING "#,53A,L,L";"      STATE #        CAL 0         CAL10         TIME"
+6570
+6580 !*********************************************************************
+6590 !TRANSFER_WAVE_DATA_TO_FILE
+6600 !
+6610 ! - This will check if the waveform data was acquired in GLITCH mode
+6620 !   or NORMAL mode.  (The Type variable was read from the :WAVEFORM:
+6630 !   PREAMBLE? query.)  It will then transfer the waveform data to the
+6640 !   data file accordingly.
+6650 !*********************************************************************
+6660   IF Preamble(2)=0 THEN            !if acquire type = GLITCH
+6670                                    !the Glitch subroutine is very slow
+6680     GOSUB Glitch                   !read GLITCH waveform data
+6690   ELSE                             !if acquire type = NORMAL
+6700                                    !the Normal subroutine is very slow
+6710     GOSUB Normal                   !read NORMAL waveform data
+6720   END IF                           !end if
+6730   ASSIGN @Data_file TO *           !close file "waveform.dat"
+6740
+6750 !*********************************************************************
+6760 !RESTORE_LEARN
+6770 !
+6780 ! - Sets the analyzer as defined by the data in the setup (learn)
+6790 !   string sent from the controller.  Again, the setup (learn) string
+6800 !   has the form #800000500<setup data string>,  where the
+6810 !   <setup data string> is 500 bytes long.
+6820 !*********************************************************************
+6830 Restore_learn:
+6840   ASSIGN @Learn_file TO "learn.dat"!open file "learn.dat"
+6850   ENTER @Learn_file USING "-K";String$     !read learn string from file
+6860   ASSIGN @Learn_file TO *          !close file "learn.dat"
+6870                                    !restore system setup
+6880   OUTPUT @Analyzer USING "#,K";"SYSTEM:SETUP ";String$
+6890   RETURN                           !from Analyze
+6900
+6910 !*********************************************************************
+6920 !GLITCH (this subroutine is very slow)
+6930 !
+6940 ! - The Glitch data contains 4 bytes for each acquired point.  The
+6950 !   first 16 bits contain the glitch data for each of the 16 channels.
+6960 !   A HIGH bit means a glitch was detected between the acquired points.
+6970 !   The second 16 bits contain the waveform data for each of the
+6980 !   16 channels.  A HIGH bit means the waveform is HIGH at that point
+6990 !   and a LOW bit means the waveform is LOW at that point.
+7000 !*********************************************************************
+7010 Glitch:
+7020   Index=1                          !initialize index to 1
+7030   Time=0                           !initialize time to 0
+7040   Time_inc=Preamble(5)             !Preamble(5) = time between points
+7050   FOR I=1 TO Preamble(3)           !Preamble(3) = number of points
+7060     Glitch0=BIT(Waveform(Index),0) !check channel 0 glitch bit
+7070     Index=Index+1                  !advance index
+7080     Glitch10=BIT(Waveform(Index),2)!check channel 10 glitch bit
+7090     Index=Index+1                  !advance index
+7100     Data0=BIT(Waveform(Index),0)   !check channel 0 data bit
+7110     Index=Index+1                  !advance index
+7120     Data10=BIT(Waveform(Index),2)  !check channel 10 data bit
+7130     Index=Index+1                  !advance index
+7140                                    !the next subroutine is very slow
+7150     GOSUB Write_to_file            !write data to file
+7160     Time=Time+Time_inc             !increment time
+7170   NEXT I
+7180   RETURN                           !from Glitch
+7190
+7200 !*********************************************************************
+7210 !NORMAL (this subroutine is very slow)
+7220 !
+7230 ! - The Normal data contains 2 bytes for each acquired point.
+7240 !   The bits contain the waveform data for each of the 16 channels
+7250 !   A HIGH bit means the waveform is HIGH at that point and a LOW bit
+7260 !   means the waveform is LOW at that point.
+7270 !*********************************************************************
+7280 Normal:
+7290   Glitch0=0                        !no glitches in normal mode
+7300   Glitch10=0                       !no glitches in normal mode
+7310   Index=11                         !initialize index to 1
+7320   Time=0                           !initialize time to 0
+7330   Time_inc=Preamble(5)             !Preamble(5) = time between points
+7340   FOR I=1 TO Preamble(3)           !Preamble(3) = number of points
+7350     Data0=BIT(Waveform(Index),0)   !check channel 0 data bit
+7360     Index=Index+1                  !advance index
+7370     Data10=BIT(Waveform(Index),2)  !check channel 10 data bit
+7380     Index=Index+1                  !advance index
+7390                                    !the next subroutine is very slow
+7400     GOSUB Write_to_file            !write data to file
+7410     Time=Time+Time_inc             !increment time
+7420   NEXT I
+7430   RETURN                           !from Normal
+7440
+7450 !*********************************************************************
+7460 !WRITE_TO_FILE (This subroutine is very slow)
+7470 !
+7480 ! - This will write the waveform data for channel 0 and channel 10 to
+7490 !   the file "waveform.dat".  The following is an example of the file:
+7500 !*********************************************************************
+7510 Write_to_file:
+7520   IF Glitch0=1 THEN                !if channel 0 has a glitch
+7530     Glitch0$="GL"                  !write "GL"
+7540   ELSE                             !if channel 0 has no glitch
+7550     Glitch0$="  "                  !write spaces
+7560   END IF                           !end if for channel 0
+7570   IF Glitch10=1 THEN               !if channel 10 has a glitch
+7580     Glitch10$="GL"                 !write "GL"
+7590   ELSE                             !if channel 10 has no glitch
+7600     Glitch10$="  "                 !write spaces
+7610   END IF                           !end if for channel 10
+7620
+7630                                    !Write waveform data to file.
+7640                                    !The format string used here simply
+7650                                    !writes the waveform data in a
+7660                                    !column format.
+7670
+7680   OUTPUT @Data_file USING "#,7X,4Z,10X,2A,X,D,10X,2A,X,D,8X,D.3DESZ,L";I,Glitch0$;Data0,Glitch10$;Data10,Time
+7690   RETURN                           !from Write_data
+7700   END

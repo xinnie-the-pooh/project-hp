@@ -1,0 +1,377 @@
+10    !  HP BASIC for Windows program using the GPIB interface
+20    !*************************************************************************
+30    ! This program illustrates most of the commonly used programming features
+40    ! of the HP 54621AD/22AD/24A Oscilloscopes.
+50    !
+60    ! This example assumes your GPIB card's address is 7 and your scope's
+70    ! address is also 7.  If these addresses do not match your configuration
+80    ! these examples will not work.
+81    !
+82    ! This example also offers RS-232 support.  See the Initialize routine.
+90    !*************************************************************************
+100   !
+110   !*************************************************************************
+120   ! MAIN PROGRAM
+130   ! This example shows the fundamental parts of a program (initialize,
+140   ! capture, analyze).
+150   ! The commands sent to the scope are written in both long and short
+160   ! form.  Both forms are acceptable.
+170   ! The input signal is the probe calibration signal from the front
+180   ! panel of the scope connected to channel 1.
+190   ! If you are using a different signal or different channels, these
+200   ! commands may not work as explained in the comments.
+210   !*************************************************************************
+220   !
+230   !*************************************************************************
+240   ! Initialize
+250   ! Initialization will start the program with the scope in a known state.
+260   !*************************************************************************
+270   GOSUB 430    ! Initialize
+280   !*************************************************************************
+290   ! Capture
+300   ! After initialization, you must make waveform data available to
+310   ! analyze.  To do this, capture the data using the DIGITIZE command.
+320   !*************************************************************************
+330   GOSUB 1850   ! Capture
+340   !*************************************************************************
+350   ! Analyze
+360   ! Once the waveform has been capture it can be analyzed.  There are many
+370   ! parts of a wave form to analyze.  This example shows some of the
+380   ! possible ways to analyze a various parts of a waveform.
+390   !*************************************************************************
+400   GOSUB 2210   ! Analyze
+410   !
+420   !
+430   ! Initialize
+440   !*************************************************************************
+450   ! Initialize will start the program with the scope in a known state.  This is
+460   ! required because some uninitialized conditions could cause the program to
+470   ! fail or not perform as expected.
+480   !
+490   ! In this example we initialize the following:
+500   ! GPIB interface and the Scope
+510   ! Channel 1 range
+520   ! Display Grid
+530   ! Timebase reference, range and delay
+540   ! Trigger mode and type
+550   !
+560   ! There are also some additional initialization commands, which are
+570   ! not used, but shown for reference
+580   !*************************************************************************
+590   !
+600   !
+610   !***************************************************************************
+620   ! INTERFACE_SETUP
+630   ! The next two statements assign the scope address to the Scope variable and the
+640   ! Interface address to the Isc variable.  Now all communication with the scope and
+650   ! the interface can be done through the @Scope and @Isc variables.
+660   ! The @Fast variable allows for faster transfer of data but is only
+670   ! useful for unformatted data.
+680   !
+690   ! For RS-232 operation replace the lines below with:
+700   ! CONTROL 9,3;9600   ! Set baud rate to 9600
+710   ! CONTROL 9,4;3      ! 8 bit;1 stop; par disable; odd par
+720   ! ASSIGN @Scope TO 9 ! Scope address
+730   !
+740   !*************************************************************************
+750      ASSIGN @Scope TO 707           ! Scope address
+760      ASSIGN @Isc TO 7               ! Interface select code = 7 (GPIB)
+770      ASSIGN @Fast TO 707;FORMAT OFF ! Turn controller formatting off
+780      CLEAR @Isc                     ! Clear the GPIB interface
+790      !**********************************************************************
+800      ! RESET
+810      ! This command puts the scope in to a known state. This statement is
+820      ! very important for programs to work as expected.
+830      ! Most of the following initialization commands are initialized by
+840      ! *RST.  It is not necessary to reinitialize them unless the default
+850      ! setting is not suitable for your application.
+860      !**********************************************************************
+870      OUTPUT @Scope;"*RST"     ! Reset the scope to the default configuration
+880      !**********************************************************************
+890      ! AUTOSCALE
+900      ! This command evaluates all the input signals and sets the correct
+910      ! conditions to display all of the active signals.
+920      !**********************************************************************
+930      OUTPUT @Scope;":AUTOSCALE"     ! Same as pressing the Autoscale key
+931      !**********************************************************************
+932      ! CHANNEL_PROBE
+933      ! Sets the probe attenuation factor for the selected channel.  The
+934      ! probe attenuation factor may be set from 0.1 to 1000.
+935      !
+936      !**********************************************************************
+940      OUTPUT @Scope;":CHAN1:PROBE 10"     ! Set Probe to 10:1
+950      !**********************************************************************
+960      ! CHANNEL_RANGE
+970      ! Sets the full scale vertical range in volts.  The range value is
+980      ! 8 times the volts per division
+990      !**********************************************************************
+1000     OUTPUT @Scope;":CHANNEL1:RANGE 8" ! Set the vertical range to 8 volts
+1010     !**********************************************************************
+1020     ! TIME_RANGE
+1030     ! Sets the full scale horizontal time in seconds.  The range value is
+1040     ! ten times the time per division.
+1050     !**********************************************************************
+1060     OUTPUT @Scope;":TIM:RANG 2e-3" !Set the time range to .002 seconds
+1070     !********************************************************************
+1080     ! TIME_REFERENCE
+1090     ! Possible values are LEFT and CENTER
+1100     ! LEFT sets the display reference on time division from the left.
+1110     ! CENTER sets the display reference to the center of the screen.
+1120     !********************************************************************
+1130     OUTPUT @Scope;":TIMEBASE:REFERENCE CENTER" ! Set reference to center
+1140     !********************************************************************
+1260     ! TRIGGER_TV_SOURCE
+1270     ! Selects the channel that actually produces the TV trigger.  Any
+1280     ! channel can be selected. 
+1300     !********************************************************************
+1310     OUTPUT @Scope;":TRIGGER:TV:SOURCE CHANNEL1"
+1320     !********************************************************************
+1330     ! TRIGGER_MODE
+1340     ! Set the trigger mode to EDGE, GLITch, PATTern, TV, SEQuence, DURation,
+1345     ! or IIC.
+1350     !********************************************************************
+1360     OUTPUT @Scope;":TRIGGER:MODE EDGE"  ! Set the trigger mode to EDGE.
+1370     !********************************************************************
+1380     ! TRIGGER_EDGE_SLOPE
+1390     ! Sets the slope of the edge for the trigger
+1400     !********************************************************************
+1410     OUTPUT @Scope;":TRIGGER:EDGE:SLOPE POSITIVE" ! Set the slope to positive
+1420     RETURN
+1430     !********************************************************************
+1440     ! The following commands up to the Capture subroutine are not executed
+1450     ! and are shown for reference purposes only.  To execute these commands
+1460     ! comment out or erase the above return line.
+1470     !
+1480     !********************************************************************
+1550     ! RUN_STOP (not executed in this example)
+1560     ! RUN starts the acquisition of data for the active waveform display
+1570     ! STOP stops the data acquisition and turns off AUTOSTORE
+1580     !********************************************************************
+1590     OUTPUT @Scope;":RUN"  ! Start data acquisition
+1600     OUTPUT @Scope;":STOP" ! Stop the data acquisition
+1610     !********************************************************************
+1670     ! VIEW_BLANK (not executed in this example)
+1680     ! VIEW turns on (starts displaying) a channel or pixel memory
+1690     ! BLANK turns off (stops displaying) a channel or pixel memory
+1700     !********************************************************************
+1710     OUTPUT @Scope;":BLANK CHANNEL1 1"   ! Turn channel 1 off
+1720     OUTPUT @Scope;":VIEW CHANNEL1 1"    ! Turn channel 1 on
+1730     !********************************************************************
+1740     ! TIMEBASE_MODE (not executed in this example)
+1750     ! Set the time base mode to MAIN, DELAYED, XY, or ROLL
+1760     !********************************************************************
+1770     OUTPUT @Scope;"TIMEBASE:MODE MAIN" ! Set time base mode to main
+1830     RETURN  ! from initialize if the above commands are executed
+1840  !************************************************************************
+1850  ! Capture
+1860  ! We will capture the waveform using the digitize command
+1870  !*************************************************************************
+1880  !
+1890     !**********************************************************************
+1900     ! AQUIRE_TYPE
+1910     ! Sets the acquisition mode.  The acquisition mode can be NORMAL, PEAK or
+1920     ! AVERAGE.
+1930     !**********************************************************************
+1940     OUTPUT @Scope;":ACQUIRE:TYPE NORMAL"
+1950     !**********************************************************************
+1960     ! AQUIRE_COMPLETE
+1970     ! Specifies the minimum completion criteria for an acquisition.  The
+1980     ! parameter determines the percentage of time buckets needed to be
+1990     ! "full" before an acquisition is considered to be complete
+2000     !**********************************************************************
+2010     OUTPUT @Scope;":ACQUIRE:COMPLETE 100"
+2020     !**********************************************************************
+2030     ! DIGITIZE
+2040     ! Used to acquire the waveform data for transfer over the interface.
+2050     ! Sending this command causes an acquisition to take place with the
+2060     ! resulting data being placed in the buffer.
+2070     !******************************** NOTE! *******************************
+2080     ! The DIGITIZE command is highly recommended for triggering modes other
+2081     ! than SINGLE. This ensures that sufficient data is available for 
+2090     ! measurement. If DIGITIZE is used with single mode, the completion 
+2091     ! criteria may never be met. The number of points gathered in Single mode
+2092     ! is related to the sweep speed, memory depth, and maximum sample rate.
+2093     ! For example, take a scope with a 2000-point memory and a sweep speed of
+2094     ! 20 us/div (200 us total time across the screen), and a scope with a 
+2095     ! 20-MSa/s maximum sample rate. 2000 divided by 200 us equals 10 MSa/s.
+2096     ! Because this number is less than or equal to the maximum sample rate, 
+2097     ! the full 2000 points will be digitized in a single acquisition.
+2098     ! Now use 2 us/div (20 us across the screen). 2000 divided by 20 us equals
+2099     ! 100 MSa/s because this is greater than the maximum sample rate by 5 times.
+2100     ! Only 400 points or 1/5 the points can be gathered on a single trigger.
+2101     ! Keep in mind when the oscilloscope is running, communication with the
+2110     ! computer interrupts data acquisition.  Setting up the oscilloscope
+2120     ! over the bus causes the data buffers to be cleared and internal
+2130     ! hardware to be reconfigured.  If a measurement is immediately requested
+2140     ! there may not have been enough time for the data acquisition process
+2150     ! to collect data the results may not be accurate.  An error value of
+2160     ! 9.9E+37 may be returned over the bus in this situation.
+2170     !**********************************************************************
+2180     OUTPUT @Scope;":DIGITIZE CHAN1"
+2190     RETURN
+2200     !**********************************************************************
+2210     ! ANALYZE
+2220     !**********************************************************************
+2230     ! In analyze we will do the following:
+2240     ! Save the system setup to a file and restore it.
+2250     ! Save the waveform data to a file on the computer.
+2260     ! Make single channel measurements.
+2270     ! Save the oscilloscope display to file that can be sent to a printer.
+2280     !**********************************************************************
+2290     !**********************************************************************
+2300     ! SAVE_LEARN
+2310     ! The *LRN query returns a program message that contains the
+2320     ! current state of the instrument.  This is the same as the
+2330     ! :SYSTEM:SETUP? query.  It returns #80000500<learn string><NL>
+2340     ! where the learn string is 500 bytes in length
+2350     !**********************************************************************
+2360     DIM String$[550]                  ! Allocate memory for learn string
+2370     OUTPUT @Scope;"*LRN?"             ! Query for learn string
+2380     ENTER @Scope USING "-K";String$   ! Read learn string
+2390     ON ERROR GOTO 2410                ! if next line has an error continue
+2400     PURGE "learn.dat"                 ! try to delete file "learn.dat"
+2410     OFF ERROR                         ! Turn off error condition
+2420     CREATE "learn.dat",1              ! Create new file learn.dat
+2430     ASSIGN @Learn TO "learn.dat"      ! open file
+2440     OUTPUT @Learn USING "#,K";String$ ! write learn string to file
+2450     ASSIGN @Learn TO *                ! close file
+2460     !**********************************************************************
+2470     ! IMAGE_TRANSFER
+2480     ! In this example we will query for the image data with :PRINT?,
+2490     ! read the data into the string Print_info$, and then save the
+2500     ! data to the file "image.dat: which you can then send to a printer.
+2510     !**********************************************************************
+2520     DIM Print_info$[19767]  ! allocate memory for low res printer data
+2530     OUTPUT @Scope;":PRINT?" ! Query for print data
+2540     PRINT "Reading printer data..."
+2550     ENTER @Scope USING "-K";Print_info$ ! Read in print data
+2560     ON ERROR GOTO 2580
+2570     PURGE "image.dat"       ! try and delete old file
+2580     OFF ERROR               ! turn off error condition
+2590     CREATE "image.dat",1    ! create new file
+2600     ASSIGN @Image TO "image.dat"  ! open file
+2610     OUTPUT @Image USING "#,K";Print_info$ ! write data to file
+2620     ASSIGN @Image TO *      ! close file
+2630     !**********************************************************************
+2640     ! RESTORE_LEARN
+2650     ! Read the learn string from a file and output it back to the scope.
+2660     !**********************************************************************
+2670     ASSIGN @Learn TO "learn.dat"
+2680     ENTER @Learn USING "-K";String$
+2690     ASSIGN @Learn TO *
+2700     OUTPUT @Scope USING "#,K";"SYSTEM:SETUP ";String$
+2710     !**********************************************************************
+2720     ! MEASURE
+2730     ! The commands in the MEASURE subsystem are used to make measurements
+2740     ! on displayed waveforms
+2750     !**********************************************************************
+2760     OUTPUT @Scope;":MEASURE:SOURCE CHANNEL1"  ! Source to measure
+2770     OUTPUT @Scope;":MEASURE:FREQUENCY?"  ! Query for frequency
+2780     ENTER @Scope;Frequency               ! Read frequency
+2790     PRINT "Frequency = ";Frequency       ! Write frequency to screen
+2800     OUTPUT @Scope;"MEASURE:DUTYCYCLE?"   ! Query for duty cycle
+2810     ENTER @Scope;Dutycycle               ! Read dutycycle
+2820     PRINT "Dutycycle = ";Dutycycle       ! Write dutycycle to screen
+2830     OUTPUT @Scope;":MEASURE:RISETIME?"   ! Query for risetime
+2840     ENTER @Scope;Risetime                ! Read risetime
+2850     PRINT "Risetime = ";Risetime         ! Write risetime to screen
+2860     OUTPUT @Scope;":MEASURE:VPP?"        ! Query for Peak to Peak voltage
+2870     ENTER @Scope;Vpp                     ! Read VPP
+2880     PRINT "VPP = ";Vpp                   ! Write VPP to screen
+2890     OUTPUT @Scope;":MEASURE:VMAX?"       ! Query for Vmax
+2900     ENTER @Scope;Vmax                    ! Read Vmax
+2910     PRINT "Vmax = ";Vmax                 ! Write Vmax to screen
+2920     !*********************************************************************
+2930     ! WAVEFORM_DATA
+2940     ! To obtain waveform data you must specify the WAVEFORM parameters
+2950     ! for the waveform data prior to sending the :WAVEFORM:DATA? query.
+2960     ! Once these parameters have been sent, the waveform data and
+2970     ! the preamble can read.
+2980     !**********************************************************************
+2990     !**********************************************************************
+3000     ! WAVE_SOURCE
+3010     ! Selects the channel to be used as the source for the waveform commands.
+3020     !**********************************************************************
+3030     OUTPUT @Scope;":WAVEFORM:SOURCE CHAN1"
+3040     !**********************************************************************
+3050     ! WAVE_POINTS
+3060     ! Specifies the number of points to be transferred using the
+3070     ! :WAVEFORM:DATA? query.
+3080     !**********************************************************************
+3090     OUTPUT @Scope;":WAVEFORM:POINTS 2000"
+3100     !**********************************************************************
+3110     ! WAVE_FORMAT
+3120     ! Sets the data transmission mode for the waveform data output.  This
+3130     ! command controls how the data is formatted when sent from the oscilloscope
+3140     ! in either a word or byte format.
+3150     !**********************************************************************
+3160     OUTPUT @Scope;":WAVEFORM:FORMAT WORD"
+3170     !**********************************************************************
+3180     ! GET_PREAMBLE
+3190     ! The preamble block contains all of the current WAVEFORM settings.  It
+3200     ! is returned in the form <preamble block><NL> where <preamble block> is:
+3210     !   FORMAT        : int16 0 = ASCII, 1 = BYTE, 2 = WORD
+3220     !   TYPE          : int16 0 = AVERAGE, 1 = NORMAL, 2 = PEAK DETECT
+3230     !   POINTS        : int32 number of data points transferred
+3240     !   COUNT         : int32 1 and is always 1
+3250     !   XINCREMENT    : float32 - time difference between data points
+3260     !   XORIGIN       : float64 - always the first data point in memory
+3270     !   XREFERENCE    : int32 - specifies the data point associated with x-origin
+3280     !   YINCREMENT    : float32 - voltage difference between data points
+3290     !   YORIGIN       : float32 - value is the voltage at center screen
+3300     !   YREFERENCE    : int16 - specifies data point where y-origin occurs
+3310     !**********************************************************************
+3320     DIM Preamble(1:10)
+3330     OUTPUT @Scope;"WAVEFORM:PREAMBLE?" ! Query for the preamble
+3340     ENTER @Scope;Preamble(*)           ! Read preamble information
+3350     !**********************************************************************
+3360     ! QUERY_WAVE_DATA
+3370     ! Outputs waveform data that is stored in a buffer.
+3380     !***********************************************************************
+3390     OUTPUT @Scope;":WAV:DATA?"  ! Query the scope for the waveform data
+3400     !***********************************************************************
+3410     !READ_WAVE_DATA
+3420     ! The wave data consists of two parts: the header, and the actual waveform
+3430     ! data followed by a new line (NL) character.  The query data has the
+3440     ! following format:
+3450     !
+3460     !   <header> <waveform data> <NL>
+3470     ! Where:
+3480     !   <header> = #800008000 (This is an example header)
+3490     ! The "#8" may be stripped off of the header and the remaining
+3500     ! numbers are the size. in bytes, of the waveform data block.  The
+3510     ! size can vary depending on the number of points acquired for the
+3520     ! waveform.  You can then read that number of bytes from the oscilloscope
+3530     ! and the terminating NL character.
+3540     !
+3550     ! The @Fast variable is used in this example to read the actual
+3560     ! waveform data block from the scope unformatted one word at time.
+3570     ! This is much faster than reading the data one byte at a time.
+3580     !**********************************************************************
+3590     ENTER @Scope USING "#,2A,8D";Header$,Bytes ! Strip off header and size
+3600     PRINT "Reading ";Bytes;" bytes from scope..."
+3610     ALLOCATE INTEGER Waveform(1:Bytes/2)       ! Allocate an array for data
+3620     ENTER @Fast;Waveform(*)                    ! Read unformatted word data
+3630     ENTER @Scope USING "-K,B";End$             ! Read terminating New Line char
+3640     PRINT "Volts/Div = ";32*Preamble(8)
+3650     PRINT "Offset = ";(128-Preamble(10))*Preamble(8)+Preamble(9)
+3660     PRINT "Sec/Div = ";Preamble(3)*Preamble(5)/10
+3670     PRINT "Delay = ";(Preamble(3)/2-Preamble(7))*Preamble(5)+Preamble(6)
+3680     FOR I=1 TO 2000 STEP 100
+3690     PRINT "Data point ";I;(Waveform(I)-Preamble(10))*Preamble(8)+Preamble(9);" Volts";(I-Preamble(7))*Preamble(5)+Preamble(6);" Seconds"
+3700     NEXT I
+3710    ! Make a delay measurement between channel 1 and 2
+3715    OUTPUT @Scope;":MEASURE:TEDGE? +1, CHAN1" !Query time at 1st rising edge on ch 1
+3720    ENTER @Scope;Chan1Edge1                   !Read time at edge 1 on ch 1
+3725    OUTPUT @Scope;":MEASURE:TEDGE? +1, CHAN2" !Query time at 1st rising edge on ch 2
+3730    ENTER @Scope;Chan2Edge1                   !Read time at edge 1 on ch 2
+3735    Delay=Chan2Edge1-Chan1Edge1               !Calculate delay time between ch 1 and 2
+3740    PRINT "Delay = ";Delay                    !Write calculated delay time to screen
+3745    !
+3750    ! Make a phase difference measurement between channel 1 and 2
+3755    OUTPUT @Scope;":MEASURE:TEDGE? +2, CHAN1" !Query time at 2nd rising edge on ch 1
+3760    ENTER @Scope;Chan1Edge2                   !Read time at edge 2 on ch 1
+3765    Period=Chan1Edge2-Chan1Edge1              !Calculate period of ch 1
+3770    Phase=(Delay/Period)360                   !Calculate phase difference between ch1 and 2
+3775    PRINT "Phase = ";Phase;" degrees"         !Write calculated phase difference to screen
+3820    END

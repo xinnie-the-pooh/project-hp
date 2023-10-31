@@ -1,0 +1,539 @@
+/************************************************************************/
+/* This is a C programming example for the 5462x oscilloscopes.           */
+/* This example uses an GPIB card at ISC 7 and assumes your scope       */
+/* address is 7.  Connect a signal to channel 1 before executing this   */
+/* program.  The probe calibration signal is a good signal to use.      */
+/*                                                                      */
+/* This example uses the GPIB command library for DOS.  RS-232          */
+/* is not supported in this example.  RS-232 users should use the HP    */
+/* Standard Instrument Control Library (SICL) Part Number E2094 or      */
+/* a BASIC interpreter, such as HP BASIC, that supports RS-232.         */
+/*                                                                      */
+/************************************************************************/
+#include <stdio.h>            /* printf... */
+#include <stdlib.h>
+#include <string.h>           /* strlen... */
+#include "c:\hpib\c\chpib.h"  /* HPIB functions */
+#include "c:\hpib\c\cfunc.h"
+
+#define ISC 7                 /* interface select code of your GPIB card */
+#define SCOPE (ISC*100)+7     /* scope address */
+
+
+/* Function prototypes */
+void initialize(void);              /* initialize the interface and scope */
+void extra(void);                   /* misc. commands not executed shown for
+                                       reference purposes */
+void capture(void);                 /* digitize the data from the scope */
+void analyze(void);                 /* make some measurements */
+void get_waveform(void);            /* download waveform data from the scope */
+void save_waveform(void);           /* save waveform data to a file */
+void retrieve_waveform(void);       /* load waveform data from a file */
+void trace(void);                   /* download a trace from memory 1 and
+                                       upload it to memory 2 */
+
+void sendstringcmd(char *);         /* sends commands to the scope */
+void errorhandle(int error, char *function, char *cause); /* error handler */
+
+/* global variables */
+long isc;      /* global that represents the GPIB interface */
+long scope;    /* global that represents the scope */
+int error;     /* used for error handling */
+
+unsigned char waveform_data[5000];       /* array to hold the waveform data */
+float preamble[10];                      /* array to hold the preamble */
+
+void main(void)
+{
+	initialize();
+
+	/* the extras function contains misc. commands that do not need */
+	/* to be executed for the proper operation of this example.     */
+	/* The commands in the extras function are shown for reference  */
+	/* purposes only.                                               */
+	/*  extra(); */ /* <-- Uncomment to execute the extra function */
+
+	capture();
+	analyze();
+
+	printf ("Program execution is complete...\n");
+}
+
+/************************************************************************/
+/* initialize - This function initializes both the interface and the    */
+/*              scope to a known state.                                 */
+/************************************************************************/
+void initialize (void)
+{
+	/************************************************************************/
+	/*SETUP_INTERFACE                                                       */
+	/*                                                                      */
+	/* - This assigns the oscilloscope I/O address to the oscilloscope and  */
+	/*   Isc variables, and selects and clears the GPIB Interface.         */
+	/*                                                                      */
+	/************************************************************************/
+
+	printf ("**********************************************************\n");
+	printf ("This program assumes that your GPIB card is at ISC 7 and\n");
+	printf ("your scope's address is 7.  If your settings do not match\n");
+	printf ("this program will fail.\n");
+	printf ("Make sure a test signal is connected to Channel 1.\n");
+	printf ("**********************************************************\n");
+
+	isc = ISC;
+	scope = SCOPE;
+	error = IORESET(isc);          /* reset the interface card */
+	errorhandle(error, "IORESET", "IORESET");
+ 	error = IOTIMEOUT(isc, 5.0);   /* set the interface timeout to 5 seconds */
+	errorhandle(error, "IOTIMEOUT", "IOTIMEOUT");
+	error = IOCLEAR(isc);          /* clear the interface */
+	errorhandle(error, "IOCLEAR", "IOCLEAR");
+
+	/************************************************************************/
+	/*RESET                                                                 */
+	/*                                                                      */
+	/* - This command puts the oscilloscope in a known state.               */
+	/*   Without this command, the oscilloscope settings are unknown.       */
+	/*   This command is very important for program control.                */
+	/*                                                                      */
+	/* - Many of the following initialization commands are initialized by   */
+	/*   this command.  It is not necessary to reinitialize them unless     */
+	/*   you want to change the default setting.                            */
+	/************************************************************************/
+
+	sendstringcmd("*RST");
+
+	/************************************************************************/
+	/*AUTOSCALE                                                             */
+	/* - This command evaluates all the input signals and sets the correct  */
+	/*   conditions to display all of the active signals.                   */
+	/************************************************************************/
+
+	sendstringcmd(":AUTOSCALE");
+
+	/************************************************************************/
+	/* CHANNEL_PROBE                                                        */
+	/* - Sets the probe attenuation factor for the selected channel.  The   */
+	/*   probe attenuation factor may be from 0.1 to 1000.                  */
+	/************************************************************************/
+
+	sendstringcmd(":CHAN1:PROBE 10");
+
+	/************************************************************************/
+	/*CHANNEL_RANGE                                                         */
+	/* - Sets the full scale vertical range in volts.  The range value is   */
+	/*   eight times the volts per division.                                */
+	/************************************************************************/
+
+	sendstringcmd(":CHANNEL1:RANGE 8");
+
+	/************************************************************************/
+	/*TIME_RANGE                                                            */
+	/* - Sets the full scale horizontal time in seconds.  The range value   */
+	/*   is ten times the time per division.                                */
+	/************************************************************************/
+
+	sendstringcmd(":TIM:RANG 2e-3");
+
+	/************************************************************************/
+	/*TIME_REFERENCE                                                        */
+	/* - Possible values are LEFT and CENTER.                               */
+	/* - LEFT sets the display reference one time division from the left.   */
+	/* - CENTER sets the display reference to the center of the screen.     */
+	/************************************************************************/
+
+	sendstringcmd(":TIMEBASE:REFERENCE CENTER");
+
+	/************************************************************************/
+	/* TRIGGER_SOURCE                                                       */
+	/* - Selects the channel that actually produces the tv trigger.  Any    */
+	/*   Channel can be selected                                            */
+	/************************************************************************/
+
+	sendstringcmd(":TRIGGER:TV:SOURCE CHANNEL1");
+
+	/************************************************************************/
+	/*TRIGGER_MODE                                                          */
+	/* - Set the trigger mode to, EDGE, GLITCH, PATTERN, TV, SEQUENCE,      */
+	/* DURATION, or IIC.                                                    */
+	/************************************************************************/
+
+	sendstringcmd(":TRIGGER:MODE EDGE");
+
+	/************************************************************************/
+	/*TRIGGER_EDGE_SLOPE                                                    */
+	/* - Set the slope of the edge for the trigger to either POSITIVE or    */
+	/*   NEGATIVE.                                                          */
+	/************************************************************************/
+
+	sendstringcmd(":TRIGGER:EDGE:SLOPE POSITIVE");
+
+	return;
+}
+
+void extra (void)
+{
+	/************************************************************************/
+	/* The commands in this function are not executed and are shown for     */
+	/* reference purposes only.  To execute these commands, call this       */
+	/* function from main.                                                  */
+	/************************************************************************/
+
+	/************************************************************************/
+	/* RUN_STOP (not executed in this example)                              */
+	/*                                                                      */
+	/* - RUN starts the acquisition of data for the active waveform display. */
+	/*                                                                      */
+	/* - STOP stops the data acquisition and turns off AUTOSTORE.           */
+	/************************************************************************/
+
+  	sendstringcmd(":RUN");
+
+  	sendstringcmd(":STOP");
+
+	/************************************************************************/
+	/*VIEW_BLANK (not executed in this example)                             */
+	/*                                                                      */
+	/* - VIEW turns on (starts displaying) an active channel or pixel       */
+	/*   memory.                                                            */
+	/*                                                                      */
+	/* - BLANK turns off (stops displaying) a specified channel or pixel    */
+	/*   memory.                                                            */
+	/************************************************************************/
+
+	sendstringcmd(":BLANK CHANNEL1");
+
+	sendstringcmd(":VIEW CHANNEL1");
+
+	/************************************************************************/
+	/*TIME_MODE (not executed in this example)                              */
+	/*                                                                      */
+	/* - Set the time base mode to MAIN, DELAYED, XY or ROLL.              */
+	/************************************************************************/
+
+  	sendstringcmd(":TIMEBASE:MODE MAIN" );
+
+}
+
+/************************************************************************/
+/* capture - This function prepares the scope for data acquisition      */
+/*          and then uses the DIGITIZE MACRO to capture some data.      */
+/************************************************************************/
+void capture (void)
+{
+	/************************************************************************/
+	/*AQUIRE_TYPE                                                           */
+	/* - Sets the acquisition mode.  There are three acquisition types      */
+	/*    NORMAL, PEAK or AVERAGE.                                          */
+	/************************************************************************/
+
+	sendstringcmd(":ACQUIRE:TYPE NORMAL");
+
+	/************************************************************************/
+	/*AQUIRE_COMPLETE                                                       */
+	/* - Specifies the minimum completion criteria for an acquisition.  The */
+	/*   parameter determines the percentage of time buckets needed to be   */
+	/*   "full" before an acquisition is considered to be complete.         */
+	/************************************************************************/
+
+	sendstringcmd(":ACQUIRE:COMPLETE 100");
+
+	/************************************************************************/
+	/*DIGITIZE                                                              */
+	/* - Used to acquire the waveform data for transfer over the interface. */
+	/*   Sending this command causes an acquisition to take place with      */
+	/*   the resulting data being placed in the buffer.                     */
+	/************************************************************************/
+	/****************************** NOTE ************************************/
+	/* The use of the DIGITIZE command is highly recommended as it will     */
+	/* ensure that sufficient data is available for measurement.  Keep in   */
+	/* mind when the oscilloscope is running, communication with the        */
+	/* computer interrupts data acquisition.  Setting up the oscilloscope   */
+	/* over the bus causes the data buffers to be cleared and internal      */
+	/* hardware to be reconfigured.  If a measurement is immediately        */
+	/* requested there may not have been enough time for the data           */
+	/* acquisition process to collect data and the results may not be       */
+	/* accurate.  An error value of 9.9E+37 may be returned over the bus    */
+	/* in this situation.                                                   */
+	/************************************************************************/
+
+	sendstringcmd(":DIGITIZE CHAN1");
+
+}
+/************************************************************************/
+/* analyze -  In this example we will do the following:                 */
+/* - Save the system setup to a file for restoration at a later time.   */
+/* - Save the scope display to a file which can be printed.             */
+/* - Make single channel measurements.                                  */
+/************************************************************************/
+void analyze (void)
+{
+	float frequency, vpp; /* measurements */
+
+    /* values calculated from the preamble data */
+	float vdiv, off, sdiv, delay;
+
+    int i;       /* loop counter */
+    FILE *fp;
+    long length;
+
+	/************************************************************************/
+	/* SAVE_LEARN                                                           */
+	/* - The *LRN? query returns a program message that contains the        */
+	/*   current state of the instrument.  This is the same as the          */
+	/*   :SYSTEM:SETUP? query.  It returns #80000158<learn string><NL>      */
+	/*   where <learn string> is 158 bytes in length.                       */
+	/************************************************************************/
+
+	IOMATCH(isc, '\n', 0);             /* turn off linefeed terminator */
+	IOEOI(isc, 1);                     /* Enable EOI as terminator */
+
+	sendstringcmd ("*LRN?");           /* send a query */
+	fp = fopen ("learn.dat", "wb");
+	fprintf (fp, ":SYSTEM:SETUP ");
+	fclose (fp);
+	length = 200;                      /* learn string length plus overflow */
+	error = IOENTERF(scope, "learn.dat", &length, 1);
+	errorhandle(error, "IOENTERF", "*LRN?");
+	printf ("Received %ld bytes of learn string.\n", length);
+
+	/************************************************************************/
+	/* RESTORE_LEARN                                                        */
+	/* - Uploads a previously saved learn string to the scope.              */
+	/************************************************************************/
+
+	error = IOOUTPUTF (scope, "learn.dat", length + 14);
+	errorhandle (error, "IOOUTPUTF", "Send LRN");
+	printf ("Uploaded the learn string to the scope.\n");
+	/************************************************************************/
+	/*IMAGE_TRANSFER                                                        */
+	/*                                                                      */
+	/* - In this example we will query for the image data with :PRINT?,     */
+	/*   read the data and save the data                                    */
+	/*   to the file "image.dat" which you can then send to a printer.      */
+	/************************************************************************/
+
+	IOMATCH(isc,'\n', 0 );       /* Turn off linefeed as terminator */
+	IOEOI( isc, 1);              /* Enable EOI as terminator */
+
+	printf("Transferring image to image.dat\n");
+	sendstringcmd ( ":PRINT?");
+
+	/* Receive the binary info, 19767 bytes = low res, 223048 = high res  */
+	length = 19767 + 2;
+	error = IOENTERF(scope, "image.dat", &length, 0 );
+	errorhandle( error, "IOENTERF", "PRINT?" );
+	printf("Done transferring image.\n");
+
+	/************************************************************************/
+	/*MEASURE                                                               */
+	/* - The commands in the MEASURE subsystem are used to make             */
+	/*   measurements on displayed waveforms.                               */
+	/************************************************************************/
+
+	sendstringcmd(":MEASURE:SOURCE CHANNEL1");/* set source to measure */
+
+	sendstringcmd(":MEASURE:FREQUENCY?");     /* query for frequency */
+	error = IOENTER(scope, &frequency);
+	errorhandle(error, "IOENTER", " FREQUENCY?" );
+
+	sendstringcmd(":MEASURE:VPP?");           /* query - peak to peak voltage */
+	error = IOENTER(scope, &vpp);
+	errorhandle(error, "IOENTER", " VPP?" );
+
+	printf ("The frequency is %f Hz\n", frequency);
+	printf ("The peak to peak voltage is %f V\n", vpp);
+
+	get_waveform();                           /* get waveform data from scope */	
+
+	/* make some calculations from the preamble data */
+	vdiv  = 32 * preamble [7];
+	off   = (128 - preamble [9]) * preamble [7] + preamble [8];
+	sdiv  = preamble [2] * preamble [4] / 10;
+	delay = (preamble [2] / 2 - preamble [6]) * preamble [4] + preamble [5];
+
+	/* print them out... */
+	printf ("Scope Settings for Channel 1:\n");
+	printf ("Volts per Division = %f\n", vdiv);
+	printf ("Offset = %f\n", off);
+	printf ("Seconds per Division = %f\n", sdiv);
+	printf ("Delay = %f\n", delay);
+
+	/* print out the waveform voltage at selected points */
+	for (i = 0; i < 2000; i = i + 100)
+		printf ("Data Point %4d = %6.2f Volts at %10f Seconds\n", i,
+		((float)waveform_data[i] - preamble[9]) * preamble[7] + preamble[8],
+		((float)i - preamble[6]) * preamble[4] + preamble[5]);
+
+	save_waveform();        /* save waveform data to disk */
+	retrieve_waveform();    /* load waveform data from disk */
+
+}
+
+/************************************************************************/
+/* get_waveform - This function transfers the data displayed on the     */
+/*                scope to the computer for storage, plotting or        */
+/*                further analysis.                                     */
+/************************************************************************/
+void get_waveform (void)
+{
+	int preamble_length, waveform_size = 4000;
+	char tmp[5];
+
+	/************************************************************************/
+	/*WAVEFORM_DATA                                                         */
+	/*                                                                      */
+	/* - To obtain waveform data, you must specify the WAVEFORM parameters  */
+	/*   for the waveform data prior to sending the :WAVEFORM:DATA? query.  */
+	/*                                                                      */
+	/* - Once these parameters have been sent, the :WAVEFORM:PREAMBLE? query*/
+	/*   provides information concerning the vertical and horizontal scaling*/
+	/*   of the waveform data.                                              */
+	/*                                                                      */
+	/* - With the preamble information you can then use the :WAVEFORM:DATA? */
+	/*   query and read the data block in the correct format.               */
+	/************************************************************************/
+
+	/************************************************************************/
+	/*WAVE_FORMAT                                                           */
+	/*                                                                      */
+	/* - Sets the data transmission mode for waveform data output.  This    */
+	/*   command controls how the data is formatted when sent from the      */
+	/*   oscilloscope and can be set to WORD or BYTE format.                */
+	/************************************************************************/
+	/* set waveform format to BYTE   */
+	sendstringcmd (":WAVEFORM:FORMAT BYTE");
+
+	/************************************************************************/
+	/*WAVE_POINTS                                                           */
+	/*                                                                      */
+	/* - Sets the number of points to be transferred.  The number of time   */
+	/*   points available is returned by the ACQUIRE:POINTS? query.  This   */
+	/*   can be set to any binary fraction of the total time points         */
+	/*   available.                                                         */
+	/************************************************************************/
+
+	sendstringcmd(":WAVEFORM:POINTS 2000");
+
+	/************************************************************************/
+	/*GET_PREAMBLE                                                          */
+	/*                                                                      */
+	/* - The preamble contains all of the current WAVEFORM settings returned*/
+	/*   in the form <preamble block><NL> where the <preamble block> is:    */
+	/*                                                                      */
+	/*     - FORMAT     : int16 0 = ASCII, 1 = BYTE, 2 = WORD               */
+	/*     - TYPE       : int16 0 = AVERAGE, 1 = NORMAL, 2 = PEAK DETECT    */
+	/*     - POINTS     : int32 number of data points transferred            */
+	/*     - COUNT      : int32 1 and is always 1                           */
+	/*     - XINCREMENT : float32 time difference between data points       */
+	/*     - XORIGIN    : float64 always the first data point in memory     */
+	/*     - XREFERENCE : int32   specifies the data pt associated w/x-orig */
+	/*     - YINCREMENT : float32 voltage difference between data points    */
+	/*     - YORIGIN    : float32 value of the voltage at center screen     */
+	/*     - YREFERENCE : int16   data point where y-origin occurs          */
+	/************************************************************************/
+
+	sendstringcmd(":WAVEFORM:PREAMBLE?" );  /* query for points available*/
+
+	printf("Reading preamble\n");
+	preamble_length = 10;
+	error = IOENTERA(scope, preamble, &preamble_length);
+	errorhandle(error, "IOENTERA", " PREAMBLE " );
+
+	/************************************************************************/
+	/*QUERY_WAVE_DATA                                                       */
+	/*                                                                      */
+	/* - Outputs waveform records to the controller over the interface that */
+	/*   is stored in a buffer previously specified with the                */
+	/*   :WAVEFORM:SOURCE command.                                          */
+	/************************************************************************/
+	sendstringcmd( ":WAVEFORM:DATA?"); /* query for waveform data */
+
+	/************************************************************************/
+	/* READ_WAVE_DATA                                                       */
+	/*                                                                      */
+	/* - The wave data consists of two parts: the header, and the actual    */
+	/*   waveform data followed by an New Line (NL) character.  The query   */
+	/*   data has the following format:                                     */
+	/*                                                                      */
+	/*               <header> <waveform data block> <NL>                    */
+	/*                                                                      */
+	/*               <header> = #800002048    (this is an example header)   */
+	/*                                                                      */
+	/*   The "#8" may be stripped off of the header and the remaining       */
+	/*   numbers are the size, in bytes, of the waveform data block.  The   */
+	/*   size can vary depending on the number of points acquired for the   */
+	/*   waveform which can be set using the :WAVEFORM:POINTS command.  You */
+	/*   may then read that number of bytes from the oscilloscope, then read*/
+	/*   the following NL character to terminate the query.                 */
+	/************************************************************************/
+
+	printf("Reading waveform data from scope... size = %d\n", waveform_size);
+	waveform_size = 4000;
+	error = IOENTERAB(scope, waveform_data, &waveform_size, 1);
+	errorhandle(error, "IOENTERAB", " WAVEFORM DATA " );
+	printf("Done reading waveform data size = %d\n", waveform_size);
+
+	waveform_size = 1;
+	error = IOENTERS(scope, tmp, &waveform_size);  /* Read in terminating NL */
+	errorhandle(error, "IOENTERS", "WAVEFORM LINE FEED");
+
+}
+
+/************************************************************************/
+/* save_waveform - This function saves the waveform data from the       */
+/*                 get_waveform function to disk.  The data is saved to */
+/*                 a file called "wave.dat"                             */
+/************************************************************************/
+void save_waveform(void)
+{
+	FILE *fp;
+
+	fp = fopen("wave.dat", "wb");
+	fwrite(preamble, sizeof(preamble[0]), 10, fp); /* write preamble */
+    /* write actually waveform data */
+	fwrite(waveform_data, sizeof(waveform_data[0]), (int)preamble[2], fp);
+	fclose (fp);
+}
+
+/************************************************************************/
+/* retrieve_waveform - This function retrieves previously saved         */
+/*                     waveform data from a file called "wave.dat".     */
+/************************************************************************/
+void retrieve_waveform(void)
+{
+	FILE *fp;
+	fp = fopen("wave.dat", "rb");
+	fread (preamble, sizeof(preamble[0]), 10, fp); /* read preamble*/
+    /* read the waveform data */
+	fread (waveform_data, sizeof(waveform_data[0]), (int)preamble[2], fp);
+	fclose (fp);
+}
+
+/************************************************************************/
+/* sendstringcmd - this function interfaces to the actual GPIB output   */
+/*                 functions.  It also checks for errors and calls the  */
+/*                 errorhandler function above                          */
+/************************************************************************/
+void sendstringcmd( char *cmd)
+{
+   /* If you need to replace the function call that outputs strings this */
+     /* is the place                                                	*/
+	error = IOOUTPUTS( scope, cmd, strlen(cmd) );
+	errorhandle(error, "IOOUTPUTS", cmd);
+}
+
+/************************************************************************/
+/* errorhandle - This function prints an error message of the screen    */
+/*                 regarding the command that caused the error.         */
+/************************************************************************/
+void errorhandle( int error, char *function, char *cmdcause )
+{
+  if ( error != NOERR )
+  {
+	printf("GPIB error in call to %s with %s, error = %s\n",
+			function, cmdcause, errstr(error) );
+ /*	wait_time(); */
+    exit(1);
+  }
+}
