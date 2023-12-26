@@ -1,0 +1,39 @@
+Els fitxers comprimits en aquest "paquet" son
+tots el necessaris per utilitzar un "driver"
+d'instrument amb LabView.
+
+En la instal.lacio de defecte de LabView, cal 
+creal un directori instr.lib penjat del directori
+d'instal.lacio de LabView (si no existeix). Dintre 
+d'aquest directori cal crear un directori amb
+el nom del fitxer ZIP que estigueu instal.lant
+i descomprimir tots els arxius dintre d'aquest
+directori. 
+
+Despres cal nomes tornar a engegar LabView.
+
+Els "drivers" contiguts en aquest arxiu han estat
+compilats per a la versio 5.1 de LabView.
+
+EXEMPLE D'INSTAL.LACIO
+
+C:
+  \
+   LabView
+          \
+           instr.lib
+                    \
+                     hp34401a
+                     |       \
+                     |        hp34401a.llb
+                     |        hp34401u.llb
+                     |        data.mnu
+                     |        .
+                     |        .
+                     |
+                     hp33120a
+                             \
+                              hp33120a.llb
+                              applic.mnu
+                              .
+                              .
